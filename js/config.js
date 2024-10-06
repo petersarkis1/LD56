@@ -1,5 +1,5 @@
-// let background = new Image(1024, 640);
-// background.src = './assets/background.png';
+let greenGuy = new Image(640, 128);
+greenGuy.src = './assets/greenGuy.png';
 // let title = new Image(1024, 640);
 // title.src = './assets/title.png';
 // let tiles = new Image(1024, 64);
