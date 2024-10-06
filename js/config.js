@@ -1,7 +1,9 @@
-let greenGuy = new Image(640, 128);
-greenGuy.src = './assets/greenGuy.png';
-// let title = new Image(1024, 640);
-// title.src = './assets/title.png';
+let greenyLeft = new Image(384, 128);
+greenyLeft.src = './assets/greenyLeft.png';
+let greenyRight = new Image(384, 128);
+greenyRight.src = './assets/greenyRight.png';
+let background = new Image(5120, 2160);
+background.src = './assets/background.png';
 // let tiles = new Image(1024, 64);
 // tiles.src = './assets/tiles.png';
 // let inserterSlide = new Image(1024, 640);
