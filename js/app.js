@@ -12,10 +12,26 @@ let player = {
     width: 128,
     height: 128,
     maxSpd: 2,
-    spd: 2,
+    spd: 8,
     animationFrame: 0,
     maxAnimationFrame: 2,
     direction: {x: 0, y: 0}
+};
+
+const camera = {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    follow(target) {
+        // Center the camera on the player
+        this.x = target.x - this.width / 2 + target.width / 2;
+        this.y = target.y - this.height / 2 + target.height / 2;
+
+        // Optional: Prevent the camera from moving out of bounds
+        this.x = Math.max(0, this.x);
+        this.y = Math.max(0, this.y);
+    }
 };
 
 let curKeys = [];
@@ -24,8 +40,9 @@ let frameCount = 0;
 function update() {
     frameCount++;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // ctx.fillRect(player.x, player.y, player.width, player.height);
-    ctx.drawImage(greenGuy, player.width * player.animationFrame, 0, player.width, player.width, player.x, player.y, player.width, player.height);
+    camera.follow(player);
+    ctx.fillRect(player.x - camera.x, player.y - camera.y, player.width, player.height);
+    // ctx.drawImage(greenGuy, player.width * player.animationFrame, 0, player.width, player.width, player.x, player.y, player.width, player.height);
     player.direction = {x: 0, y: 0};
     if (curKeys.includes('w')) {
         player.direction.y -= 1;
