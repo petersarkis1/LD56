@@ -5,6 +5,8 @@ let windowedWidth = 1580;
 let windowedHeight = 920;
 canvas.width = windowedWidth;
 canvas.height = windowedHeight;
+let mouseX = 0;
+let mouseY = 0;
 
 let lastTime = 0;
 
@@ -76,6 +78,7 @@ let powerups = [];
 let frameCount = 0;
 let groundLevel = 2160-128;
 let playingMainTheme = false;
+let outOfBounds = false;
 
 function initEnemies() {
     for (let i = 0; i < currentLevel.length; i++) {
@@ -93,6 +96,7 @@ function initEnemies() {
                     width: 128,
                     height: 128,
                     velocityY: 0,
+                    velocityX: 0,
                     gravity: 0.3,
                     jumpStrength: 8,
                     sprTotal: 2,
@@ -116,6 +120,7 @@ function initEnemies() {
                     width: 128,
                     height: 128,
                     velocityY: 0,
+                    velocityX: 0,
                     gravity: 0.3,
                     jumpStrength: 8,
                     sprTotal: 2,
@@ -139,6 +144,7 @@ function initEnemies() {
                     width: 128,
                     height: 154,
                     velocityY: 0,
+                    velocityX: 0,
                     gravity: 0.3,
                     jumpStrength: 8,
                     sprTotal: 2,
@@ -223,7 +229,7 @@ function update(currentTime) {
     if (typeof currentLevel == 'string') {
         switch (currentLevel) {
             case 'pressAnyKey':
-                ctx.drawImage(menuScreen, 0, 0, 1580, 920);
+                ctx.drawImage(pressAnyScreen, 0, 0, 1580, 920);
                 if (curKeys.length >= 1) {
                     currentLevel = 'mainMenu';
                 }
@@ -231,23 +237,46 @@ function update(currentTime) {
             case 'mainMenu':
                 intro_music.play();
                 ctx.drawImage(menuScreen, 0, 0, 1580, 920);
-                if (curKeys.includes('Enter')) {
+                if (boxCollision(mouseX, mouseY, 1, 1, 650, 335, 270, 90)) {
                     currentLevel = level1;
                     currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
                     resetGame();
                 }
+                if (boxCollision(mouseX, mouseY, 1, 1, 630, 460, 320, 90)) {
+                    currentLevel = 'credits';
+                }
                 break;
             case 'credits':
-                ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
+                canvas.height = 1801;
+                ctx.drawImage(creditsScreen, 0, 0, 1580, 1801);
+                if (boxCollision(mouseX, mouseY, 1, 1, 660, 1650, 320, 80)) {
+                    canvas.height = windowedHeight;
+                    currentLevel = 'mainMenu';
+                }
                 break;
             case 'gameOver':
                 ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
-                if (curKeys.includes(' ')) {
+                if (boxCollision(mouseX, mouseY, 1, 1, 600, 260, 380, 90)) {
+                    currentLevel = level1;
+                    currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
+                    resetGame();
+                }
+                if (boxCollision(mouseX, mouseY, 1, 1, 625, 760, 325, 85)) {
                     currentLevel = 'mainMenu';
                 }
                 break;
         }
     } else {
+        if (outOfBounds) {
+            player.dying = true;
+            player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+            player.velocityY += player.gravity; // Increase downward velocity over time
+            player.y += player.velocityY * deltaTime; // Adjust for delta time
+            player.dyingTime = 200;
+            death_sound.play();
+            main_theme.pause();
+            outOfBounds = false;
+        }
         frameCount++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(greenBlurred, 0 - camera.x, 0 - camera.y, 5120, 2160);
@@ -286,7 +315,12 @@ function update(currentTime) {
                 player.y += player.velocityY * deltaTime; // Adjust for delta time
             }
             // Check collision under the player
-            let yCol = checkYplatformCollision();
+            let yCol = false;
+            try {
+                yCol = checkYplatformCollision();
+              } catch (error) {
+                outOfBounds = true;
+              }
             if (!yCol) {
                 player.velocityY += player.gravity * deltaTime; // Increase downward velocity over time
                 player.y += player.velocityY * deltaTime; // Update the player's vertical position
@@ -313,7 +347,12 @@ function update(currentTime) {
         
             if (player.direction.x != 0) {
                 player.x += player.direction.x * player.spd * deltaTime;
-                let colX = checkXplatformCollision();
+                let colX = false;
+                try {
+                    colX = checkXplatformCollision();
+                  } catch (error) {
+                    outOfBounds = true;
+                  }
                 if (colX) {
                     player.x = colX;
                 }
@@ -627,10 +666,17 @@ function enemyStep() {
                             curEnemy.velocityY = -curEnemy.jumpStrength; // Set the initial jump velocity
                             curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
                             curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
+                            if (curEnemy.dying) {
+                                let min = -4
+                                let max = 4
+                                curEnemy.velocityX = Math.floor(Math.random() * (max - min + 1)) + min;
+                                curEnemy.x += curEnemy.velocityX * deltaTime; // Adjust for delta time
+                            }
                         } else {
                             if (curEnemy.dying) {
                                 curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
                                 curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
+                                curEnemy.x += curEnemy.velocityX * deltaTime; // Adjust for delta time
                                 curEnemy.dyingTime--;
                                 if (curEnemy.dyingTime <= 0) {
                                     enemiesToRemove.push(i);
@@ -694,6 +740,13 @@ function drawPowerups() {
 window.addEventListener("load", function() {
     requestAnimationFrame(update);
 });
+
+window.addEventListener("mousedown", function(el) {
+    let rect = canvas.getBoundingClientRect();
+    mouseX = el.clientX - rect.left;
+    mouseY = el.clientY - rect.top;
+    // console.log(mouseX, mouseY);
+  });
 
 document.addEventListener("keydown", function(e) {
     if (!curKeys.includes(e.key)) {
