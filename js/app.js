@@ -257,7 +257,7 @@ function update(currentTime) {
                 ctx.fillStyle = "#616060";
                 ctx.fillRect(732, 767, volume, 20);
                 if (boxCollision(mouseX, mouseY, 1, 1, 650, 335, 270, 90)) {
-                    currentWorldIndex = 3;
+                    currentWorldIndex = 0;
                     resetGame();
                     player.x = levelStarts[currentWorldIndex].x;
                     player.y = levelStarts[currentWorldIndex].y;
@@ -286,6 +286,7 @@ function update(currentTime) {
                     player.x = levelStarts[currentWorldIndex].x;
                     player.y = levelStarts[currentWorldIndex].y;
                     [mouseX, mouseY] = [0,0];
+                    main_theme.play();
                 }
                 if (boxCollision(mouseX, mouseY, 1, 1, 625, 760, 325, 85)) {
                     currentLevel = 'mainMenu';
@@ -297,6 +298,9 @@ function update(currentTime) {
                 if (boxCollision(mouseX, mouseY, 1, 1, 530, 780, 520, 90)) {
                     currentLevel = 'mainMenu';
                     [mouseX, mouseY] = [0,0];
+                    winning_theme.pause();
+                    main_theme.pause();
+                    intro_music.play();
                 }
                 break;
         }
@@ -355,6 +359,7 @@ function update(currentTime) {
                 outOfBounds = true;
               }
             if (!yCol) {
+                player.canJump = false;
                 player.velocityY += player.gravity * deltaTime; // Increase downward velocity over time
                 player.y += player.velocityY * deltaTime; // Update the player's vertical position
                 //check head bonk
@@ -411,6 +416,7 @@ function update(currentTime) {
         
             let enemyColIndex = checkForEnemyCol();
             if (enemyColIndex !== false) {
+                console.log((player.y - enemies[enemyColIndex].y))
                 if (player.power == 'star' || player.power == 'virus') {
                     enemies[enemyColIndex].dying = true;
                     enemies[enemyColIndex].dyingTime = 80;
@@ -418,33 +424,23 @@ function update(currentTime) {
                     enemies[enemyColIndex].currentAction = 'jump';
                     switch (enemies[enemyColIndex].type) {
                         case 'amiba':
+                            amiba_hit.currentTime = 0
                             amiba_hit.play();
                             break;
                         case 'blueman':
+                            blueman_hit.currentTime = 0
                             blueman_hit.play();
                             break;
                         case 'pinkguy':
+                            pinkguy_hit.currentTime = 0
                             pinkguy_hit.play();
                             break;
                     }
                     if (player.power == 'virus') {
-                        player.power = 'base';
-                        player.isTransforming = true;
-                        player.TransformingTime = 80;
-                        player.jumpStrength = 11;
-                        player.spd = 8;
-                        playerOldSprLeft = playerSprLeft;
-                        playerOldSprRight = playerSprRight;
-                        playerSprLeft = greenyLeft;
-                        playerSprRight = greenyRight;
-                    }
-                } else {
-                    if (player.canTakeDamage) {
-                        player.canTakeDamage = false;
-                        player.damageTimer = 80;
-                        ouch.play();
-                        if (player.power == 'base') {
-                            player.lives--;
+                        if (player.y - enemies[enemyColIndex].y <= -100) {
+                            player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                            player.velocityY += player.gravity; // Increase downward velocity over time
+                            player.y += player.velocityY * deltaTime; // Adjust for delta time
                         } else {
                             player.power = 'base';
                             player.isTransforming = true;
@@ -456,17 +452,42 @@ function update(currentTime) {
                             playerSprLeft = greenyLeft;
                             playerSprRight = greenyRight;
                         }
-                        //check for death
-                        if (player.lives <= 0) {
-                            player.dying = true;
-                            player.velocityY = -player.jumpStrength; // Set the initial jump velocity
-                            player.velocityY += player.gravity; // Increase downward velocity over time
-                            player.y += player.velocityY * deltaTime; // Adjust for delta time
-                            player.dyingTime = 200;
-                            death_sound.play();
-                            main_theme.pause();
-                            star_sound.pause();
+                    }
+                } else {
+                    if (player.power == 'base' || player.y - enemies[enemyColIndex].y > -100) {
+                        if (player.canTakeDamage) {
+                            player.canTakeDamage = false;
+                            player.damageTimer = 80;
+                            ouch.play();
+                            if (player.power == 'base') {
+                                player.lives--;
+                            } else {
+                                player.power = 'base';
+                                player.isTransforming = true;
+                                player.TransformingTime = 80;
+                                player.jumpStrength = 11;
+                                player.spd = 8;
+                                playerOldSprLeft = playerSprLeft;
+                                playerOldSprRight = playerSprRight;
+                                playerSprLeft = greenyLeft;
+                                playerSprRight = greenyRight;
+                            }
+                            //check for death
+                            if (player.lives <= 0) {
+                                player.dying = true;
+                                player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                                player.velocityY += player.gravity; // Increase downward velocity over time
+                                player.y += player.velocityY * deltaTime; // Adjust for delta time
+                                player.dyingTime = 200;
+                                death_sound.play();
+                                main_theme.pause();
+                                star_sound.pause();
+                            }
                         }
+                    } else {
+                        player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                        player.velocityY += player.gravity; // Increase downward velocity over time
+                        player.y += player.velocityY * deltaTime; // Adjust for delta time
                     }
                 }
             }
@@ -582,6 +603,10 @@ function resetGame(lives = 3) {
     player.y = levelStarts[currentWorldIndex].y
     currentLevel = levels[currentWorldIndex];
     currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
+    playerSprLeft = greenyLeft;
+    playerSprRight = greenyRight;
+    playerOldSprLeft = greenyLeft;
+    playerOldSprRight = greenyRight;
     enemies = [];
     powerups = [];
     initEnemies();
