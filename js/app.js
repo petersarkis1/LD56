@@ -6,6 +6,8 @@ let windowedHeight = 920;
 canvas.width = windowedWidth;
 canvas.height = windowedHeight;
 
+let lastTime = 0;
+
 let playerSprLeft = greenyLeft;
 let playerSprRight = greenyRight;
 let playerOldSprLeft = greenyLeft;
@@ -112,7 +114,11 @@ function initEnemies() {
     }
 }
 
-function update() {
+function update(currentTime) {
+    // Calculate the delta time
+    let deltaTime = (currentTime - lastTime) / 10; // Convert milliseconds to seconds
+    lastTime = currentTime;
+
     if (currentLevel == 'gameOver') {
         ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
     } else {
@@ -145,13 +151,13 @@ function update() {
             player.isJumping = true;
             player.velocityY = -player.jumpStrength; // Set the initial jump velocity
             player.velocityY += player.gravity; // Increase downward velocity over time
-            player.y += player.velocityY;
+            player.y += player.velocityY * deltaTime; // Adjust for delta time
         }
         // Check collision under the player
         let yCol = checkYplatformCollision();
         if (!yCol) {
-            player.velocityY += player.gravity; // Increase downward velocity over time
-            player.y += player.velocityY; // Update the player's vertical position
+            player.velocityY += player.gravity * deltaTime; // Increase downward velocity over time
+            player.y += player.velocityY * deltaTime; // Update the player's vertical position
             //check head bonk
             if (checkYplatformCollisionHead()) {
                 player.velocityY = 0;
@@ -174,7 +180,7 @@ function update() {
         }
     
         if (player.direction.x != 0) {
-            player.x += player.direction.x * player.spd;
+            player.x += player.direction.x * player.spd * deltaTime;
             let colX = checkXplatformCollision();
             if (colX) {
                 player.x = colX;
@@ -411,7 +417,7 @@ function drawPowerups() {
 }
 
 window.addEventListener("load", function() {
-    update();
+    requestAnimationFrame(update);
 });
 
 document.addEventListener("keydown", function(e) {
