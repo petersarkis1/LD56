@@ -846,8 +846,11 @@ window.addEventListener("load", function() {
 
 window.addEventListener("mousedown", function(el) {
     let rect = canvas.getBoundingClientRect();
-    mouseX = el.clientX - rect.left;
-    mouseY = el.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;   // Relationship bitmap vs. element for X
+    const scaleY = canvas.height / rect.height;
+    mouseX = (el.clientX - rect.left) * scaleX;
+    mouseY = (el.clientY - rect.top) * scaleY;
+    
     if (boxCollision(732, 767, 290, 20, mouseX, mouseY, 1, 1)) {
         volume = mouseX - 732;
         musicVolume = 0.4 * (volume / 290);
