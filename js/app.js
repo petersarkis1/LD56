@@ -42,12 +42,13 @@ let player = {
     direction: {x: 0, y: 0},
     dying: false,
     dyingTime: 0,
+    clearLvl: false,
+    clearTime: 0
 };
 
-let level = {
-    width: 5120,
-    height: 2160
-}
+let currentWorldIndex = 1;
+let tileSize = 64;
+let lvlFinish = {};
 
 const camera = {
     x: 0,
@@ -59,25 +60,24 @@ const camera = {
         this.x = target.x - this.width / 2 + target.width / 2;
         this.y = target.y - this.height / 2 + target.height / 2;
 
+        lvlWidth = levels[currentWorldIndex][0].length * tileSize;
+        lvlHeight = levels[currentWorldIndex].length * tileSize;
         // Optional: Prevent the camera from moving out of bounds
         this.x = Math.max(0, this.x);
-        this.x = Math.min(level.width - windowedWidth, this.x);
+        this.x = Math.min(lvlWidth - windowedWidth, this.x);
         this.y = Math.max(0, this.y);
-        this.y = Math.min(level.height - windowedHeight, this.y);
+        this.y = Math.min(lvlHeight - windowedHeight, this.y);
     }
 };
 
 let deltaTime;
 let currentLevel = 'pressAnyKey';
 let currentTileLevel;
-let tileSize = 64;
 let tileAlternates = ['a', 'b', 'c', 'd'];
 let curKeys = [];
 let enemies = [];
 let powerups = [];
 let frameCount = 0;
-let groundLevel = 2160-128;
-let playingMainTheme = false;
 let outOfBounds = false;
 
 function initEnemies() {
@@ -170,7 +170,9 @@ function initEnemies() {
                     movingCount: 0,
                     covingCountMax: 20,
                     sprLeft: orangeyLeft,
-                    sprRight: orangeyRight
+                    sprRight: orangeyRight,
+                    jumpStrength: 14,
+                    spd: 8
                 });
             }
             if (tile == 6) {
@@ -184,7 +186,9 @@ function initEnemies() {
                     movingCount: 0,
                     covingCountMax: 20,
                     sprLeft: blueyLeft,
-                    sprRight: blueyRight
+                    sprRight: blueyRight,
+                    jumpStrength: 11,
+                    spd: 14
                 });
             }
             if (tile == 7) {
@@ -198,7 +202,9 @@ function initEnemies() {
                     movingCount: 0,
                     covingCountMax: 20,
                     sprLeft: darkGreenyLeft,
-                    sprRight: darkGreenyRight
+                    sprRight: darkGreenyRight,
+                    jumpStrength: 11,
+                    spd: 8
                 });
             }
             if (tile == 8) {
@@ -212,8 +218,18 @@ function initEnemies() {
                     movingCount: 0,
                     covingCountMax: 20,
                     sprLeft: greyLeft,
-                    sprRight: greyRight
+                    sprRight: greyRight,
+                    jumpStrength: 11,
+                    spd: 8
                 });
+            }
+            if (tile == 9) {
+                lvlFinish = {
+                    x: j*tileSize,
+                    y: i*tileSize,
+                    width: 512,
+                    height: 512,
+                };
             }
         }
     }
@@ -232,18 +248,26 @@ function update(currentTime) {
                 ctx.drawImage(pressAnyScreen, 0, 0, 1580, 920);
                 if (curKeys.length >= 1) {
                     currentLevel = 'mainMenu';
+                    [mouseX, mouseY] = [0,0];
                 }
                 break;
             case 'mainMenu':
                 intro_music.play();
                 ctx.drawImage(menuScreen, 0, 0, 1580, 920);
+                ctx.fillStyle = "#616060";
+                ctx.fillRect(732, 767, volume, 20);
                 if (boxCollision(mouseX, mouseY, 1, 1, 650, 335, 270, 90)) {
-                    currentLevel = level1;
-                    currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
+                    currentWorldIndex = 3;
                     resetGame();
+                    player.x = levelStarts[currentWorldIndex].x;
+                    player.y = levelStarts[currentWorldIndex].y;
+                    [mouseX, mouseY] = [0,0];
+                    intro_music.pause();
+                    main_theme.play();
                 }
                 if (boxCollision(mouseX, mouseY, 1, 1, 630, 460, 320, 90)) {
                     currentLevel = 'credits';
+                    [mouseX, mouseY] = [0,0];
                 }
                 break;
             case 'credits':
@@ -252,45 +276,54 @@ function update(currentTime) {
                 if (boxCollision(mouseX, mouseY, 1, 1, 660, 1650, 320, 80)) {
                     canvas.height = windowedHeight;
                     currentLevel = 'mainMenu';
+                    [mouseX, mouseY] = [0,0];
                 }
                 break;
             case 'gameOver':
                 ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
                 if (boxCollision(mouseX, mouseY, 1, 1, 600, 260, 380, 90)) {
-                    currentLevel = level1;
-                    currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
                     resetGame();
+                    player.x = levelStarts[currentWorldIndex].x;
+                    player.y = levelStarts[currentWorldIndex].y;
+                    [mouseX, mouseY] = [0,0];
                 }
                 if (boxCollision(mouseX, mouseY, 1, 1, 625, 760, 325, 85)) {
                     currentLevel = 'mainMenu';
+                    [mouseX, mouseY] = [0,0];
+                }
+                break;
+            case 'winScreen':
+                ctx.drawImage(winScreen, 0, 0, 1580, 920);
+                if (boxCollision(mouseX, mouseY, 1, 1, 530, 780, 520, 90)) {
+                    currentLevel = 'mainMenu';
+                    [mouseX, mouseY] = [0,0];
                 }
                 break;
         }
     } else {
         if (outOfBounds) {
-            player.dying = true;
-            player.velocityY = -player.jumpStrength; // Set the initial jump velocity
-            player.velocityY += player.gravity; // Increase downward velocity over time
-            player.y += player.velocityY * deltaTime; // Adjust for delta time
-            player.dyingTime = 200;
-            death_sound.play();
-            main_theme.pause();
+            if (player.y > 200) {
+                player.dying = true;
+                player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                player.velocityY += player.gravity; // Increase downward velocity over time
+                player.y += player.velocityY * deltaTime; // Adjust for delta time
+                player.dyingTime = 200;
+                death_sound.play();
+                main_theme.pause();
+                star_sound.pause();
+            }
             outOfBounds = false;
         }
         frameCount++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(greenBlurred, 0 - camera.x, 0 - camera.y, 5120, 2160);
+        ctx.drawImage(levelBackgrounds[currentWorldIndex], 0 - camera.x, 0 - camera.y, levels[currentWorldIndex][0].length * tileSize, levels[currentWorldIndex].length * tileSize);
         drawLevel();
         enemyStep();
         drawEnemies();
+        drawFinish();
         drawPowerups();
         camera.follow(player);
         if (!player.dying) {
-            if (!playingMainTheme) {
-                playingMainTheme = true;
-                main_theme.play();
-                intro_music.pause();
-            }
             player.direction = {x: 0};
             if (curKeys.includes('ArrowLeft')) {
                 player.direction.x -= 1;
@@ -325,7 +358,12 @@ function update(currentTime) {
                 player.velocityY += player.gravity * deltaTime; // Increase downward velocity over time
                 player.y += player.velocityY * deltaTime; // Update the player's vertical position
                 //check head bonk
-                if (checkYplatformCollisionHead()) {
+                let yColHead = false;
+                try {
+                    yColHead = checkYplatformCollisionHead();
+                  } catch (error) {
+                  }
+                if (yColHead) {
                     player.velocityY = 0;
                 }
             } else {
@@ -393,6 +431,8 @@ function update(currentTime) {
                         player.power = 'base';
                         player.isTransforming = true;
                         player.TransformingTime = 80;
+                        player.jumpStrength = 11;
+                        player.spd = 8;
                         playerOldSprLeft = playerSprLeft;
                         playerOldSprRight = playerSprRight;
                         playerSprLeft = greenyLeft;
@@ -409,6 +449,8 @@ function update(currentTime) {
                             player.power = 'base';
                             player.isTransforming = true;
                             player.TransformingTime = 80;
+                            player.jumpStrength = 11;
+                            player.spd = 8;
                             playerOldSprLeft = playerSprLeft;
                             playerOldSprRight = playerSprRight;
                             playerSprLeft = greenyLeft;
@@ -423,6 +465,7 @@ function update(currentTime) {
                             player.dyingTime = 200;
                             death_sound.play();
                             main_theme.pause();
+                            star_sound.pause();
                         }
                     }
                 }
@@ -437,10 +480,35 @@ function update(currentTime) {
                 }
                 player.isTransforming = true;
                 player.TransformingTime = 80;
+                player.jumpStrength = foundPowers.jumpStrength;
+                player.spd = foundPowers.spd;
                 playerOldSprLeft = playerSprLeft;
                 playerOldSprRight = playerSprRight;
                 playerSprLeft = foundPowers.sprLeft;
                 playerSprRight = foundPowers.sprRight;
+            }
+
+
+            if (player.clearLvl) {
+                player.clearTime--;
+                if (player.clearTime <= 0) {
+                    if (currentWorldIndex == 3) {
+                        currentLevel = 'winScreen';
+                        main_theme.pause();
+                        star_sound.pause();
+                        winning_theme.play();
+                        player.clearLvl = false;
+                    } else {
+                        currentWorldIndex++;
+                        resetGame(player.lives);
+                    }
+                }
+            } else {
+                //check for exit
+                if (boxCollision(player.x, player.y, player.width, player.height, lvlFinish.x, lvlFinish.y, lvlFinish.width, lvlFinish.height)) {
+                    player.clearLvl = true;
+                    player.clearTime = 30;
+                }
             }
     
             if (player.isTransforming) {
@@ -460,7 +528,7 @@ function update(currentTime) {
                 player.isTransforming = false;
                 player.curSpr = playerSprRight;
             }
-    
+            
             drawHud();
         } else {
             ctx.drawImage(player.curSpr, player.width * player.animationFrame, 0, player.width, player.width, player.x - camera.x, player.y - camera.y + 10, player.width, player.height);
@@ -471,6 +539,8 @@ function update(currentTime) {
             if (player.dyingTime <= 0) {
                 player.dying = false;
                 currentLevel = 'gameOver';
+                main_theme.pause();
+                star_sound.pause();
             }
         }
 
@@ -478,7 +548,7 @@ function update(currentTime) {
     requestAnimationFrame(update);
 }
 
-function resetGame() {
+function resetGame(lives = 3) {
     player = {
         x: 10,
         y: 1800,
@@ -500,14 +570,18 @@ function resetGame() {
         spd: 8,
         animationFrame: 0,
         maxAnimationFrame: 2,
-        lives: 3,
+        lives: lives,
         canTakeDamage: true,
         damageTimer: 0,
         direction: {x: 0, y: 0},
         dying: false,
         dyingTime: 0,
+        clearLvl: false,
+        clearTime: 0
     };
-    playingMainTheme = false;
+    player.y = levelStarts[currentWorldIndex].y
+    currentLevel = levels[currentWorldIndex];
+    currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
     enemies = [];
     powerups = [];
     initEnemies();
@@ -517,6 +591,10 @@ function drawHud() {
     ctx.drawImage(player.lives >= 1 ? filledHeart : emptyHeart, 1280, 10, 68, 68);
     ctx.drawImage(player.lives >= 2 ? filledHeart : emptyHeart, 1360, 10, 68, 68);
     ctx.drawImage(player.lives >= 3 ? filledHeart : emptyHeart, 1440, 10, 68, 68);
+}
+
+function drawFinish() {
+    ctx.drawImage(finishs[currentWorldIndex], lvlFinish.x  - camera.x, lvlFinish.y  - camera.y, lvlFinish.width, lvlFinish.height);
 }
 
 function checkForEnemyCol() {   
@@ -597,23 +675,23 @@ function checkForFloor(x, y) {
 
 function drawLevel() {
     
-    platformSpr = [lPlat1, lPlat2, lPlat3, lPlat4];
+    platformSpr = [[lPlat1, lPlat2, lPlat3, lPlat4], [bugPlat1, bugPlat2, bugPlat3, bugPlat4], [bPlat1, bPlat2, bPlat3, bPlat4], [fPlat1, fPlat2, fPlat3, fPlat4]];
 
     for (let i = 0; i < currentLevel.length; i++) {
         for (let j = 0; j < currentLevel[i].length; j++) {
             // Get the sprite for the object
             let tile = currentTileLevel[i][j];
             if (tile == '1a') {
-                ctx.drawImage(platformSpr[0], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
+                ctx.drawImage(platformSpr[currentWorldIndex][0], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
             }
             if (tile == '1b') {
-                ctx.drawImage(platformSpr[1], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
+                ctx.drawImage(platformSpr[currentWorldIndex][1], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
             }
             if (tile == '1c') {
-                ctx.drawImage(platformSpr[2], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
+                ctx.drawImage(platformSpr[currentWorldIndex][2], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
             }
             if (tile == '1d') {
-                ctx.drawImage(platformSpr[3], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
+                ctx.drawImage(platformSpr[currentWorldIndex][3], j*tileSize - camera.x, i*tileSize - camera.y, tileSize, tileSize);
             }
         }
     }
@@ -745,7 +823,11 @@ window.addEventListener("mousedown", function(el) {
     let rect = canvas.getBoundingClientRect();
     mouseX = el.clientX - rect.left;
     mouseY = el.clientY - rect.top;
-    // console.log(mouseX, mouseY);
+    if (boxCollision(732, 767, 290, 20, mouseX, mouseY, 1, 1)) {
+        volume = mouseX - 732;
+        musicVolume = 0.4 * (volume / 290);
+        setMusicVolume();
+    }
   });
 
 document.addEventListener("keydown", function(e) {

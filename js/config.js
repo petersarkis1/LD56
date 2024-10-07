@@ -34,12 +34,20 @@ let menuScreen = new Image(1581, 921);
 menuScreen.src = './assets/menuScreen.png';
 let pressAnyScreen = new Image(1581, 921);
 pressAnyScreen.src = './assets/pressAnyScreen.png';
+let winScreen = new Image(1581, 920);
+winScreen.src = './assets/winScreen.png';
 let creditsScreen = new Image(1580, 1801);
 creditsScreen.src = './assets/creditsScreen.png';
 let gameOverScreen = new Image(1581, 921);
 gameOverScreen.src = './assets/gameOverScreen.png';
 let greenBlurred = new Image(1375, 772);
 greenBlurred.src = './assets/greenBlurred.png';
+let redBlurred = new Image(2367, 1185);
+redBlurred.src = './assets/redBlurred.png';
+let blueBlurred = new Image(1580, 1185);
+blueBlurred.src = './assets/blueBlurred.png';
+let orangeBlurred = new Image(6174, 1701);
+orangeBlurred.src = './assets/orangeBlurred.png';
 let lPlat1 = new Image(64, 64);
 lPlat1.src = './assets/lPlat1.png';
 let lPlat2 = new Image(64, 64);
@@ -50,6 +58,28 @@ let lPlat4 = new Image(64, 64);
 lPlat4.src = './assets/lPlat4.png';
 let bugPlat1 = new Image(64, 64);
 bugPlat1.src = './assets/bugPlat1.png';
+let bugPlat2 = new Image(64, 64);
+bugPlat2.src = './assets/bugPlat2.png';
+let bugPlat3 = new Image(64, 64);
+bugPlat3.src = './assets/bugPlat3.png';
+let bugPlat4 = new Image(64, 64);
+bugPlat4.src = './assets/bugPlat4.png';
+let bPlat1 = new Image(64, 64);
+bPlat1.src = './assets/bPlat1.png';
+let bPlat2 = new Image(64, 64);
+bPlat2.src = './assets/bPlat2.png';
+let bPlat3 = new Image(64, 64);
+bPlat3.src = './assets/bPlat3.png';
+let bPlat4 = new Image(64, 64);
+bPlat4.src = './assets/bPlat4.png';
+let fPlat1 = new Image(64, 64);
+fPlat1.src = './assets/fPlat1.png';
+let fPlat2 = new Image(64, 64);
+fPlat2.src = './assets/fPlat2.png';
+let fPlat3 = new Image(64, 64);
+fPlat3.src = './assets/fPlat3.png';
+let fPlat4 = new Image(64, 64);
+fPlat4.src = './assets/fPlat4.png';
 let fungusPWRUP = new Image(64, 64);
 fungusPWRUP.src = './assets/fungusPWRUP.png';
 let parasitePWRUP = new Image(64, 64);
@@ -62,6 +92,15 @@ let emptyHeart = new Image(68, 68);
 emptyHeart.src = './assets/emptyHeart.png';
 let filledHeart = new Image(68, 68);
 filledHeart.src = './assets/filledHeart.png';
+
+let ladybug = new Image(512, 512);
+ladybug.src = './assets/ladybug.png';
+let bluebird = new Image(512, 512);
+bluebird.src = './assets/bluebird.png';
+let fox = new Image(512, 512);
+fox.src = './assets/fox.png';
+let hand = new Image(512, 512);
+hand.src = './assets/hand.png';
 // let inserterSlide = new Image(1024, 640);
 // inserterSlide.src = './assets/inserterSlide.png';
 // let inserterImg = new Image(96, 96);
@@ -76,11 +115,18 @@ filledHeart.src = './assets/filledHeart.png';
 // items.src = './assets/items.png';
 // let gameOver = new Image(448, 200);
 // gameOver.src = './assets/gameover.png';
+
+var volume = 290;
+var musicVolume = 0.4 * (volume / 280);
+
 let intro_music = document.getElementById("intro_music");
 intro_music.loop = true;
 
 let main_theme = document.getElementById("main_theme");
 main_theme.loop = true;
+
+let winning_theme = document.getElementById("winning_theme");
+winning_theme.loop = true;
 
 let power_up = document.getElementById("power_up");
 power_up.loop = false;
@@ -103,8 +149,15 @@ star_sound.loop = true;
 let death_sound = document.getElementById("death_sound");
 death_sound.loop = false;
 
-// let sound2 = document.getElementById("sound2");
-// sound2.loop = true;
-// sound.onended = function() {
-//     sound2.play();
-// };
+function setMusicVolume() {
+    intro_music.volume = musicVolume;
+    main_theme.volume = musicVolume;
+    winning_theme.volume = musicVolume;
+    power_up.volume = musicVolume;
+    ouch.volume = musicVolume;
+    amiba_hit.volume = musicVolume;
+    pinkguy_hit.volume = musicVolume;
+    blueman_hit.volume = musicVolume;
+    star_sound.volume = musicVolume;
+    death_sound.volume = musicVolume;
+}
