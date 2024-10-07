@@ -81,6 +81,21 @@ main_theme.loop = true;
 let power_up = document.getElementById("power_up");
 power_up.loop = false;
 
+let ouch = document.getElementById("ouch");
+ouch.loop = false;
+
+let amiba_hit = document.getElementById("amiba_hit");
+amiba_hit.loop = false;
+
+let pinkguy_hit = document.getElementById("pinkguy_hit");
+pinkguy_hit.loop = false;
+
+let blueman_hit = document.getElementById("blueman_hit");
+blueman_hit.loop = false;
+
+let star_sound = document.getElementById("star_sound");
+star_sound.loop = true;
+
 let death_sound = document.getElementById("death_sound");
 death_sound.loop = false;
 

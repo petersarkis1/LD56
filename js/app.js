@@ -92,6 +92,9 @@ function initEnemies() {
                     y: i*tileSize - 32,
                     width: 128,
                     height: 128,
+                    velocityY: 0,
+                    gravity: 0.3,
+                    jumpStrength: 8,
                     sprTotal: 2,
                     dir: 0,
                     curSpr: 0,
@@ -99,7 +102,9 @@ function initEnemies() {
                     spd: 3,
                     actionList: ['walkLeft', 'walkRight'],
                     currentAction: null,
-                    timeToNextAction: 10
+                    timeToNextAction: 10,
+                    dying: false,
+                    dyingTime: 0
                 });
             }
             if (tile == 3) {
@@ -121,7 +126,9 @@ function initEnemies() {
                     hasJumped: false,
                     actionList: ['walkLeft', 'walkRight','jump'],
                     currentAction: null,
-                    timeToNextAction: 4
+                    timeToNextAction: 4,
+                    dying: false,
+                    dyingTime: 0
                 });
             }
             if (tile == 4) {
@@ -131,6 +138,9 @@ function initEnemies() {
                     y: i*tileSize - 64,
                     width: 128,
                     height: 154,
+                    velocityY: 0,
+                    gravity: 0.3,
+                    jumpStrength: 8,
                     sprTotal: 2,
                     dir: 0,
                     curSpr: 0,
@@ -138,7 +148,9 @@ function initEnemies() {
                     spd: 5,
                     actionList: ['walkLeft', 'walkRight'],
                     currentAction: null,
-                    timeToNextAction: 10
+                    timeToNextAction: 10,
+                    dying: false,
+                    dyingTime: 0
                 });
             }
             if (tile == 5) {
@@ -315,16 +327,30 @@ function update(currentTime) {
                 if (player.damageTimer == 0) {
                     player.canTakeDamage = true;
                     player.show = true;
+                    ouch.pause();
+                    ouch.currentTime = 0;
                 }
             }
         
-            if (checkForEnemyCol()) {
-                if (player.canTakeDamage) {
-                    player.canTakeDamage = false;
-                    player.damageTimer = 80;
-                    if (player.power == 'base') {
-                        player.lives--;
-                    } else {
+            let enemyColIndex = checkForEnemyCol();
+            if (enemyColIndex !== false) {
+                if (player.power == 'star' || player.power == 'virus') {
+                    enemies[enemyColIndex].dying = true;
+                    enemies[enemyColIndex].dyingTime = 80;
+                    enemies[enemyColIndex].timeToNextAction = 0;
+                    enemies[enemyColIndex].currentAction = 'jump';
+                    switch (enemies[enemyColIndex].type) {
+                        case 'amiba':
+                            amiba_hit.play();
+                            break;
+                        case 'blueman':
+                            blueman_hit.play();
+                            break;
+                        case 'pinkguy':
+                            pinkguy_hit.play();
+                            break;
+                    }
+                    if (player.power == 'virus') {
                         player.power = 'base';
                         player.isTransforming = true;
                         player.TransformingTime = 80;
@@ -333,15 +359,32 @@ function update(currentTime) {
                         playerSprLeft = greenyLeft;
                         playerSprRight = greenyRight;
                     }
-                    //check for death
-                    if (player.lives <= 0) {
-                        player.dying = true;
-                        player.velocityY = -player.jumpStrength; // Set the initial jump velocity
-                        player.velocityY += player.gravity; // Increase downward velocity over time
-                        player.y += player.velocityY * deltaTime; // Adjust for delta time
-                        player.dyingTime = 200;
-                        death_sound.play();
-                        main_theme.pause();
+                } else {
+                    if (player.canTakeDamage) {
+                        player.canTakeDamage = false;
+                        player.damageTimer = 80;
+                        ouch.play();
+                        if (player.power == 'base') {
+                            player.lives--;
+                        } else {
+                            player.power = 'base';
+                            player.isTransforming = true;
+                            player.TransformingTime = 80;
+                            playerOldSprLeft = playerSprLeft;
+                            playerOldSprRight = playerSprRight;
+                            playerSprLeft = greenyLeft;
+                            playerSprRight = greenyRight;
+                        }
+                        //check for death
+                        if (player.lives <= 0) {
+                            player.dying = true;
+                            player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                            player.velocityY += player.gravity; // Increase downward velocity over time
+                            player.y += player.velocityY * deltaTime; // Adjust for delta time
+                            player.dyingTime = 200;
+                            death_sound.play();
+                            main_theme.pause();
+                        }
                     }
                 }
             }
@@ -349,6 +392,10 @@ function update(currentTime) {
             if (foundPowers && !player.isTransforming) {
                 power_up.play();
                 player.power = foundPowers.type;
+                if(player.power == 'star') {
+                    star_sound.play();
+                    main_theme.pause();
+                }
                 player.isTransforming = true;
                 player.TransformingTime = 80;
                 playerOldSprLeft = playerSprLeft;
@@ -436,8 +483,8 @@ function drawHud() {
 function checkForEnemyCol() {   
     for (let i = 0; i < enemies.length; i++) {
         let curEnemy = enemies[i];
-        if (boxCollision(player.x, player.y, player.width, player.height, curEnemy.x, curEnemy.y, curEnemy.width, curEnemy.height)) {
-            return true;
+        if (!curEnemy.dying && boxCollision(player.x, player.y, player.width, player.height, curEnemy.x, curEnemy.y, curEnemy.width, curEnemy.height)) {
+            return i;
         }
     }
     return false;
@@ -534,6 +581,7 @@ function drawLevel() {
 }
 
 function enemyStep() {
+    let enemiesToRemove = [];
     for (let i = 0; i < enemies.length; i++) {
         let curEnemy = enemies[i];
         if (curEnemy.timeToNextAction != 0) {
@@ -574,27 +622,38 @@ function enemyStep() {
                         }
                         break;
                     case 'jump':
-                        console.log(curEnemy.y, curEnemy.floorY)
                         if (!curEnemy.hasJumped) {
                             curEnemy.hasJumped = true;
                             curEnemy.velocityY = -curEnemy.jumpStrength; // Set the initial jump velocity
                             curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
                             curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
                         } else {
-                            if (curEnemy.y < curEnemy.floorY) {
+                            if (curEnemy.dying) {
                                 curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
                                 curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
+                                curEnemy.dyingTime--;
+                                if (curEnemy.dyingTime <= 0) {
+                                    enemiesToRemove.push(i);
+                                }
                             } else {
-                            curEnemy.y = curEnemy.floorY;
-                            curEnemy.hasJumped = false;
-                            curEnemy.currentAction = null;
-                            curEnemy.timeToNextAction = Math.floor(Math.random()* 100);
+                                if (curEnemy.y < curEnemy.floorY) {
+                                    curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
+                                    curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
+                                } else {
+                                curEnemy.y = curEnemy.floorY;
+                                curEnemy.hasJumped = false;
+                                curEnemy.currentAction = null;
+                                curEnemy.timeToNextAction = Math.floor(Math.random()* 100);
+                                }
                             }
                         }
                         break;
                 }
             }
         }
+    }
+    for (let i = enemiesToRemove.length-1; i >= 0; i--) {
+        enemies.splice(enemiesToRemove[i], 1);
     }
 }
 
