@@ -23,9 +23,9 @@ let player = {
     isTransforming: false,
     TransformingTime: 0,
     TransformingToggleOld: true,
-    velocityY: 0,
     width: 128,
     height: 128,
+    velocityY: 0,
     gravity: 0.3,
     jumpStrength: 11,
     canJump: true,
@@ -37,7 +37,9 @@ let player = {
     lives: 3,
     canTakeDamage: true,
     damageTimer: 0,
-    direction: {x: 0, y: 0}
+    direction: {x: 0, y: 0},
+    dying: false,
+    dyingTime: 0,
 };
 
 let level = {
@@ -63,16 +65,17 @@ const camera = {
     }
 };
 
-let currentLevel = level1;
-let currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
+let deltaTime;
+let currentLevel = 'pressAnyKey';
+let currentTileLevel;
 let tileSize = 64;
 let tileAlternates = ['a', 'b', 'c', 'd'];
 let curKeys = [];
 let enemies = [];
 let powerups = [];
-initEnemies();
 let frameCount = 0;
 let groundLevel = 2160-128;
+let playingMainTheme = false;
 
 function initEnemies() {
     for (let i = 0; i < currentLevel.length; i++) {
@@ -86,13 +89,53 @@ function initEnemies() {
                 enemies.push({
                     type: 'amiba',
                     x: j*tileSize - 64,
-                    y: i*tileSize - 64,
-                    width: 101,
+                    y: i*tileSize - 32,
+                    width: 128,
                     height: 128,
                     sprTotal: 2,
+                    dir: 0,
+                    curSpr: 0,
+                    sprSpd: 40,
+                    spd: 3,
+                    actionList: ['walkLeft', 'walkRight'],
+                    currentAction: null,
+                    timeToNextAction: 10
+                });
+            }
+            if (tile == 3) {
+                enemies.push({
+                    type: 'blueman',
+                    x: j*tileSize - 64,
+                    y: i*tileSize - 50,
+                    floorY: i*tileSize - 50,
+                    width: 128,
+                    height: 128,
+                    velocityY: 0,
+                    gravity: 0.3,
+                    jumpStrength: 8,
+                    sprTotal: 2,
+                    dir: 0,
                     curSpr: 0,
                     sprSpd: 10,
-                    spd: 4,
+                    spd: 2,
+                    hasJumped: false,
+                    actionList: ['walkLeft', 'walkRight','jump'],
+                    currentAction: null,
+                    timeToNextAction: 4
+                });
+            }
+            if (tile == 4) {
+                enemies.push({
+                    type: 'pinkguy',
+                    x: j*tileSize - 64,
+                    y: i*tileSize - 64,
+                    width: 128,
+                    height: 154,
+                    sprTotal: 2,
+                    dir: 0,
+                    curSpr: 0,
+                    sprSpd: 10,
+                    spd: 5,
                     actionList: ['walkLeft', 'walkRight'],
                     currentAction: null,
                     timeToNextAction: 10
@@ -107,20 +150,91 @@ function initEnemies() {
                     height: 64,
                     movingDir: -1,
                     movingCount: 0,
-                    covingCountMax: 20
+                    covingCountMax: 20,
+                    sprLeft: orangeyLeft,
+                    sprRight: orangeyRight
+                });
+            }
+            if (tile == 6) {
+                powerups.push({
+                    type: 'parasite',
+                    x: j*tileSize,
+                    y: i*tileSize,
+                    width: 64,
+                    height: 64,
+                    movingDir: -1,
+                    movingCount: 0,
+                    covingCountMax: 20,
+                    sprLeft: blueyLeft,
+                    sprRight: blueyRight
+                });
+            }
+            if (tile == 7) {
+                powerups.push({
+                    type: 'virus',
+                    x: j*tileSize,
+                    y: i*tileSize,
+                    width: 64,
+                    height: 64,
+                    movingDir: -1,
+                    movingCount: 0,
+                    covingCountMax: 20,
+                    sprLeft: darkGreenyLeft,
+                    sprRight: darkGreenyRight
+                });
+            }
+            if (tile == 8) {
+                powerups.push({
+                    type: 'star',
+                    x: j*tileSize,
+                    y: i*tileSize,
+                    width: 64,
+                    height: 64,
+                    movingDir: -1,
+                    movingCount: 0,
+                    covingCountMax: 20,
+                    sprLeft: greyLeft,
+                    sprRight: greyRight
                 });
             }
         }
     }
 }
 
+let menus = ['mainMenu', 'credits', 'gameOver'];
+
 function update(currentTime) {
     // Calculate the delta time
-    let deltaTime = (currentTime - lastTime) / 10; // Convert milliseconds to seconds
+    deltaTime = (currentTime - lastTime) / 10; // Convert milliseconds to seconds
     lastTime = currentTime;
 
-    if (currentLevel == 'gameOver') {
-        ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
+    if (typeof currentLevel == 'string') {
+        switch (currentLevel) {
+            case 'pressAnyKey':
+                ctx.drawImage(menuScreen, 0, 0, 1580, 920);
+                if (curKeys.length >= 1) {
+                    currentLevel = 'mainMenu';
+                }
+                break;
+            case 'mainMenu':
+                intro_music.play();
+                ctx.drawImage(menuScreen, 0, 0, 1580, 920);
+                if (curKeys.includes('Enter')) {
+                    currentLevel = level1;
+                    currentTileLevel = JSON.parse(JSON.stringify(currentLevel));
+                    resetGame();
+                }
+                break;
+            case 'credits':
+                ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
+                break;
+            case 'gameOver':
+                ctx.drawImage(gameOverScreen, 0, 0, 1580, 920);
+                if (curKeys.includes(' ')) {
+                    currentLevel = 'mainMenu';
+                }
+                break;
+        }
     } else {
         frameCount++;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -130,121 +244,196 @@ function update(currentTime) {
         drawEnemies();
         drawPowerups();
         camera.follow(player);
-        player.direction = {x: 0};
-        if (curKeys.includes('ArrowLeft')) {
-            player.direction.x -= 1;
-        }
-        if (curKeys.includes('ArrowRight')) {
-            player.direction.x += 1;
-        }
+        if (!player.dying) {
+            if (!playingMainTheme) {
+                playingMainTheme = true;
+                main_theme.play();
+                intro_music.pause();
+            }
+            player.direction = {x: 0};
+            if (curKeys.includes('ArrowLeft')) {
+                player.direction.x -= 1;
+            }
+            if (curKeys.includes('ArrowRight')) {
+                player.direction.x += 1;
+            }
+            
+            //check to change sprite
+            if (player.direction.x != 0 && !player.isTransforming) {
+                player.curSpr = player.direction.x > 0 ? playerSprRight : playerSprLeft;
+            }
+            if (player.show) {
+                ctx.drawImage(player.curSpr, player.width * player.animationFrame, 0, player.width, player.width, player.x - camera.x, player.y - camera.y + 10, player.width, player.height);
+            }
         
-        //check to change sprite
-        if (player.direction.x != 0 && !player.isTransforming) {
-            player.curSpr = player.direction.x > 0 ? playerSprRight : playerSprLeft;
-        }
-        if (player.show) {
-            ctx.drawImage(player.curSpr, player.width * player.animationFrame, 0, player.width, player.width, player.x - camera.x, player.y - camera.y + 10, player.width, player.height);
-        }
+            if (curKeys.includes(' ') && player.canJump) {
+                player.canJump = false;
+                player.isJumping = true;
+                player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                player.velocityY += player.gravity; // Increase downward velocity over time
+                player.y += player.velocityY * deltaTime; // Adjust for delta time
+            }
+            // Check collision under the player
+            let yCol = checkYplatformCollision();
+            if (!yCol) {
+                player.velocityY += player.gravity * deltaTime; // Increase downward velocity over time
+                player.y += player.velocityY * deltaTime; // Update the player's vertical position
+                //check head bonk
+                if (checkYplatformCollisionHead()) {
+                    player.velocityY = 0;
+                }
+            } else {
+                player.y = yCol; // Reset to ground level
+                player.isJumping = false;
+                player.canJump = true; // Allow jumping again
+                player.velocityY = 0; // Reset vertical velocity
+            }
+        
+        
+            let isPlayerMoving = player.direction.x != 0
+        
+            if (frameCount % player.sprSpd == 0 && isPlayerMoving) {
+                player.animationFrame++;
+                if (player.animationFrame > player.maxAnimationFrame) {
+                    player.animationFrame = 0;
+                }
+            }
+        
+            if (player.direction.x != 0) {
+                player.x += player.direction.x * player.spd * deltaTime;
+                let colX = checkXplatformCollision();
+                if (colX) {
+                    player.x = colX;
+                }
+            }
+        
+            if (player.damageTimer != 0) {
+                player.damageTimer--;
+                if (player.damageTimer % 5 == 0) {
+                    player.show = !player.show;
+                }
+                if (player.damageTimer == 0) {
+                    player.canTakeDamage = true;
+                    player.show = true;
+                }
+            }
+        
+            if (checkForEnemyCol()) {
+                if (player.canTakeDamage) {
+                    player.canTakeDamage = false;
+                    player.damageTimer = 80;
+                    if (player.power == 'base') {
+                        player.lives--;
+                    } else {
+                        player.power = 'base';
+                        player.isTransforming = true;
+                        player.TransformingTime = 80;
+                        playerOldSprLeft = playerSprLeft;
+                        playerOldSprRight = playerSprRight;
+                        playerSprLeft = greenyLeft;
+                        playerSprRight = greenyRight;
+                    }
+                    //check for death
+                    if (player.lives <= 0) {
+                        player.dying = true;
+                        player.velocityY = -player.jumpStrength; // Set the initial jump velocity
+                        player.velocityY += player.gravity; // Increase downward velocity over time
+                        player.y += player.velocityY * deltaTime; // Adjust for delta time
+                        player.dyingTime = 200;
+                        death_sound.play();
+                        main_theme.pause();
+                    }
+                }
+            }
+            let foundPowers = checkForPowerupCol()
+            if (foundPowers && !player.isTransforming) {
+                power_up.play();
+                player.power = foundPowers.type;
+                player.isTransforming = true;
+                player.TransformingTime = 80;
+                playerOldSprLeft = playerSprLeft;
+                playerOldSprRight = playerSprRight;
+                playerSprLeft = foundPowers.sprLeft;
+                playerSprRight = foundPowers.sprRight;
+            }
     
-        if (curKeys.includes(' ') && player.canJump) {
-            player.canJump = false;
-            player.isJumping = true;
-            player.velocityY = -player.jumpStrength; // Set the initial jump velocity
-            player.velocityY += player.gravity; // Increase downward velocity over time
-            player.y += player.velocityY * deltaTime; // Adjust for delta time
-        }
-        // Check collision under the player
-        let yCol = checkYplatformCollision();
-        if (!yCol) {
+            if (player.isTransforming) {
+                player.TransformingTime--;
+                if (player.TransformingTime % 10 == 0) {
+                    player.TransformingToggleOld = !player.TransformingToggleOld;
+                    if (player.TransformingToggleOld) {
+                        player.curSpr = playerOldSprRight;
+                    } else {
+                        player.curSpr = playerSprRight;
+                    }
+    
+                }
+            }
+    
+            if (player.isTransforming && player.TransformingTime <= 0) {
+                player.isTransforming = false;
+                player.curSpr = playerSprRight;
+            }
+    
+            drawHud();
+        } else {
+            ctx.drawImage(player.curSpr, player.width * player.animationFrame, 0, player.width, player.width, player.x - camera.x, player.y - camera.y + 10, player.width, player.height);
+            drawHud();
             player.velocityY += player.gravity * deltaTime; // Increase downward velocity over time
             player.y += player.velocityY * deltaTime; // Update the player's vertical position
-            //check head bonk
-            if (checkYplatformCollisionHead()) {
-                player.velocityY = 0;
+            player.dyingTime--;
+            if (player.dyingTime <= 0) {
+                player.dying = false;
+                currentLevel = 'gameOver';
             }
-        } else {
-            player.y = yCol; // Reset to ground level
-            player.isJumping = false;
-            player.canJump = true; // Allow jumping again
-            player.velocityY = 0; // Reset vertical velocity
-        }
-    
-    
-        let isPlayerMoving = player.direction.x != 0
-    
-        if (frameCount % player.sprSpd == 0 && isPlayerMoving) {
-            player.animationFrame++;
-            if (player.animationFrame > player.maxAnimationFrame) {
-                player.animationFrame = 0;
-            }
-        }
-    
-        if (player.direction.x != 0) {
-            player.x += player.direction.x * player.spd * deltaTime;
-            let colX = checkXplatformCollision();
-            if (colX) {
-                player.x = colX;
-            }
-        }
-    
-        if (player.damageTimer != 0) {
-            player.damageTimer--;
-            if (player.damageTimer % 5 == 0) {
-                player.show = !player.show;
-            }
-            if (player.damageTimer == 0) {
-                player.canTakeDamage = true;
-                player.show = true;
-            }
-        }
-    
-        if (checkForEnemyCol()) {
-            if (player.canTakeDamage) {
-                player.canTakeDamage = false;
-                player.damageTimer = 40;
-                player.lives--;
-                //check for death
-                if (player.lives <= 0) {
-                    currentLevel = 'gameOver';
-                }
-            }
-        }
-        let foundPowers = checkForPowerupCol()
-        if (foundPowers) {
-            
-            player.power = foundPowers.type;
-            player.isTransforming = true;
-            player.TransformingTime = 80;
-            playerOldSprLeft = greenyLeft;
-            playerOldSprRight = greenyRight;
-            playerSprLeft = orangeyRight;
-            playerSprRight = orangeyRight;
-        }
-
-        if (player.isTransforming) {
-            player.TransformingTime--;
-            console.log(player.TransformingTime);
-            if (player.TransformingTime % 10 == 0) {
-                player.TransformingToggleOld = !player.TransformingToggleOld;
-                if (player.TransformingToggleOld) {
-                    player.curSpr = playerOldSprRight;
-                } else {
-                    player.curSpr = playerSprRight;
-                }
-
-            }
-        }
-
-        if (player.TransformingTime <= 0) {
-            player.isTransforming = false;
-            player.curSpr = playerSprRight;
         }
 
     }
     requestAnimationFrame(update);
 }
 
-function checkForEnemyCol() {
+function resetGame() {
+    player = {
+        x: 10,
+        y: 1800,
+        curSpr: greenyLeft,
+        show: true,
+        sprSpd: 10,
+        power: 'base',
+        isTransforming: false,
+        TransformingTime: 0,
+        TransformingToggleOld: true,
+        velocityY: 0,
+        width: 128,
+        height: 128,
+        gravity: 0.3,
+        jumpStrength: 11,
+        canJump: true,
+        isJumping: false,
+        maxSpd: 2,
+        spd: 8,
+        animationFrame: 0,
+        maxAnimationFrame: 2,
+        lives: 3,
+        canTakeDamage: true,
+        damageTimer: 0,
+        direction: {x: 0, y: 0},
+        dying: false,
+        dyingTime: 0,
+    };
+    playingMainTheme = false;
+    enemies = [];
+    powerups = [];
+    initEnemies();
+}
+
+function drawHud() {
+    ctx.drawImage(player.lives >= 1 ? filledHeart : emptyHeart, 1280, 10, 68, 68);
+    ctx.drawImage(player.lives >= 2 ? filledHeart : emptyHeart, 1360, 10, 68, 68);
+    ctx.drawImage(player.lives >= 3 ? filledHeart : emptyHeart, 1440, 10, 68, 68);
+}
+
+function checkForEnemyCol() {   
     for (let i = 0; i < enemies.length; i++) {
         let curEnemy = enemies[i];
         if (boxCollision(player.x, player.y, player.width, player.height, curEnemy.x, curEnemy.y, curEnemy.width, curEnemy.height)) {
@@ -259,7 +448,7 @@ function checkForPowerupCol() {
     for (let i = 0; i < powerups.length; i++) {
         let curPowerup = powerups[i];
         if (boxCollision(player.x, player.y, player.width, player.height, curPowerup.x, curPowerup.y, curPowerup.width, curPowerup.height)) {
-            foundPowerupIndex = curPowerup;
+            foundPowerupIndex = i;
         }
     }
     if (foundPowerupIndex !== null) {
@@ -356,7 +545,8 @@ function enemyStep() {
                 switch (curEnemy.currentAction) {
                     case 'walkLeft':
                         if (checkForFloor(curEnemy.x - curEnemy.spd, curEnemy.y + curEnemy.height + 4)) {
-                            curEnemy.x -= curEnemy.spd;
+                            curEnemy.x -= curEnemy.spd * deltaTime;
+                            curEnemy.dir = -1;
                             if (frameCount % curEnemy.sprSpd == 0) {
                                 curEnemy.curSpr++;
                                 if (curEnemy.curSpr > curEnemy.sprTotal) {
@@ -370,9 +560,10 @@ function enemyStep() {
                         break;
                     case 'walkRight':
                         if (checkForFloor(curEnemy.x + curEnemy.spd + curEnemy.width, curEnemy.y + curEnemy.height + 4)) {
-                            curEnemy.x += curEnemy.spd;
+                            curEnemy.x += curEnemy.spd * deltaTime;
                             if (frameCount % curEnemy.sprSpd == 0) {
                                 curEnemy.curSpr++;
+                                curEnemy.dir = 1;
                                 if (curEnemy.curSpr > curEnemy.sprTotal) {
                                     curEnemy.curSpr = 0;
                                 }
@@ -380,6 +571,25 @@ function enemyStep() {
                         } else {
                             curEnemy.currentAction = null;
                             curEnemy.timeToNextAction = Math.floor(Math.random()* 100);
+                        }
+                        break;
+                    case 'jump':
+                        console.log(curEnemy.y, curEnemy.floorY)
+                        if (!curEnemy.hasJumped) {
+                            curEnemy.hasJumped = true;
+                            curEnemy.velocityY = -curEnemy.jumpStrength; // Set the initial jump velocity
+                            curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
+                            curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
+                        } else {
+                            if (curEnemy.y < curEnemy.floorY) {
+                                curEnemy.velocityY += curEnemy.gravity; // Increase downward velocity over time
+                                curEnemy.y += curEnemy.velocityY * deltaTime; // Adjust for delta time
+                            } else {
+                            curEnemy.y = curEnemy.floorY;
+                            curEnemy.hasJumped = false;
+                            curEnemy.currentAction = null;
+                            curEnemy.timeToNextAction = Math.floor(Math.random()* 100);
+                            }
                         }
                         break;
                 }
@@ -390,22 +600,28 @@ function enemyStep() {
 
 function drawEnemies() {
     let enemyMap = {
-        amiba: amiba
+        amiba: [amibaLeft, amibaRight],
+        blueman: [blueman, blueman],
+        pinkguy: [pinkGuyLeft, pinkGuyRight]
     };
     for (let i = 0; i < enemies.length; i++) {
         let curEnemy = enemies[i];
-        ctx.drawImage(enemyMap[curEnemy.type], curEnemy.curSpr * curEnemy.width, 0, curEnemy.width, curEnemy.height, curEnemy.x - camera.x, curEnemy.y - camera.y, curEnemy.width, curEnemy.height);
+
+        ctx.drawImage(enemyMap[curEnemy.type][curEnemy.dir == 1 ? 1 : 0], curEnemy.curSpr * curEnemy.width, 0, curEnemy.width, curEnemy.height, curEnemy.x - camera.x, curEnemy.y - camera.y, curEnemy.width, curEnemy.height);
     }
 }
 
 function drawPowerups() {
     let powerupMap = {
-        fungus: fungusPWRUP
+        fungus: fungusPWRUP,
+        virus: virusPWRUP,
+        parasite: parasitePWRUP,
+        star: starPWRUP
     };
     for (let i = 0; i < powerups.length; i++) {
         let curPower = powerups[i];
         if (frameCount % 2 == 0) {
-            curPower.y += 1 * curPower.movingDir;
+            curPower.y += 1 * curPower.movingDir  * deltaTime;
             curPower.movingCount++;
         }
         if (curPower.movingCount >= curPower.covingCountMax) {
